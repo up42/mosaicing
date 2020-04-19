@@ -7,7 +7,7 @@
 mkvirtualenv --python=$(which python3.7) up42-mosaicing
 ```
 
-Requires rtree which can not be installed via pip. Use:
+Install spatialindex via brew before (!) installing the requirements (to be able to install rtree).
 
 ```bash
 brew install spatialindex

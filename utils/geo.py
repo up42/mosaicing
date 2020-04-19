@@ -7,6 +7,7 @@ from shapely.ops import transform
 import pyproj
 import geopandas as gpd
 from geopandas import GeoDataFrame as GDF
+import pandas as pd
 import area
 
 
@@ -131,3 +132,52 @@ def explode_mp(df: GDF) -> GDF:
 
     outdf = outdf.reset_index(drop=True)
     return outdf
+
+
+def get_best_sections_full_coverage(df, min_size_section_sqkm=0.5):
+    # Select the best scene as a starting point (lowest cc, highest area.)
+    full_coverage = df.iloc[[0]]
+
+    remaining = df.iloc[1:]
+
+    for i in range(remaining.shape[0]):
+
+        # Get the unioned area of the aoi which is already covered by the selected scenes, subtract that area from all remaining scenes.
+        already_covered = gpd.GeoDataFrame(pd.DataFrame([0]), crs={'init': 'epsg:4326'},
+                                           geometry=[
+                                               full_coverage.geometry.unary_union])
+        remaining_minus_covered = gpd.overlay(remaining, already_covered,
+                                              how="difference")
+
+        # Recalculate the area of the remaining scenes.
+        remaining_minus_covered = add_area_in_sqkm(remaining_minus_covered,
+                                                   "area_sqkm_new")
+        # Remove too small scene sections
+        remaining_minus_covered = remaining_minus_covered[
+            remaining_minus_covered["area_sqkm_new"] > min_size_section_sqkm]
+        if remaining_minus_covered.shape[0] == 0:
+            break
+        # reorder.
+        remaining_minus_covered = remaining_minus_covered.sort_values(
+            by=["cloudCoverage", "area_sqkm_new"], axis=0, ascending=False)
+
+        # Select the now best scene.
+        now_best = remaining_minus_covered.iloc[[0]]
+        # Explode potential mutipolygons
+        if "MultiPolygon" in now_best.geometry.type.tolist():
+            now_best = explode_mp(now_best)
+            now_best = add_area_in_sqkm(now_best, "area_sqkm_new")
+            now_best = now_best[now_best["area_sqkm_new"] > min_size_section_sqkm]
+            if now_best.shape[0] == 0:
+                continue
+        # Add to the results
+        full_coverage = full_coverage.append(now_best)
+        full_coverage.reset_index(drop=True, inplace=True)
+
+        # Next iteration will not include the selected scene.
+        remaining = remaining_minus_covered.iloc[1:]
+
+    full_coverage = add_area_in_sqkm(full_coverage, "area_sqkm_new")
+    full_coverage.geometry = full_coverage.geometry.buffer(0)
+
+    return full_coverage
