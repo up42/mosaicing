@@ -3,9 +3,10 @@ import math
 
 import shapely
 from shapely.geometry import Polygon
-import pyproj
 from shapely.ops import transform
-
+import pyproj
+import geopandas as gpd
+import area
 
 # pylint: disable=chained-comparison
 def get_utm_zone_epsg(lon: float, lat: float) -> int:
@@ -95,3 +96,14 @@ def reproject_shapely(
     )
     geometry_reprojected = transform(project.transform, geometry)
     return geometry_reprojected
+
+
+def add_area_in_sqkm(df: gpd.GeoDataFrame, col_name="area_sqkm") -> gpd.GeoDataFrame:
+    features = df.__geo_interface__["features"]
+    areas_list = []
+    for idx, feature in enumerate(features):
+        area_sqkm = area.area(feature["geometry"]) / (10 ** 6)
+        areas_list.append(area_sqkm)
+
+    df[col_name] = areas_list
+    return df
