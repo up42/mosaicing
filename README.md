@@ -1,5 +1,6 @@
 # Mosaicing
 
+
 ## Installation
 
 ```bash
@@ -7,6 +8,7 @@ mkvirtualenv --python=$(which python3.7) up42-mosaicing
 ```
 
 Requires rtree which can not be installed via pip. Use:
+
 ```bash
 brew install spatialindex
 ```
@@ -14,6 +16,15 @@ brew install spatialindex
 ```bash
 pip install -r requirements.txt
 ```
+
+Register jupyter kernel:
+
+```bash
+pip install ipykernel
+python -m ipykernel install --user --name=up42-mosaicing
+```
+
+Select kernel on the top right of the Jupyter notebook.
 
 
 ## Usage

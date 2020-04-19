@@ -8,6 +8,7 @@ import pyproj
 import geopandas as gpd
 import area
 
+
 # pylint: disable=chained-comparison
 def get_utm_zone_epsg(lon: float, lat: float) -> int:
     """
