@@ -6,6 +6,7 @@ from shapely.geometry import Polygon
 from shapely.ops import transform
 import pyproj
 import geopandas as gpd
+from geopandas import GeoDataFrame as GDF
 import area
 
 
@@ -99,7 +100,7 @@ def reproject_shapely(
     return geometry_reprojected
 
 
-def add_area_in_sqkm(df: gpd.GeoDataFrame, col_name="area_sqkm") -> gpd.GeoDataFrame:
+def add_area_in_sqkm(df: GDF, col_name="area_sqkm") -> GDF:
     features = df.__geo_interface__["features"]
     areas_list = []
     for idx, feature in enumerate(features):
@@ -108,3 +109,25 @@ def add_area_in_sqkm(df: gpd.GeoDataFrame, col_name="area_sqkm") -> gpd.GeoDataF
 
     df[col_name] = areas_list
     return df
+
+
+def explode_mp(df: GDF) -> GDF:
+    """
+    Explode all multi-polygon geometries in a geodataframe into individual polygon
+    geometries.
+    Adds exploded polygons as rows at the end of the geodataframe and resets its index.
+    Args:
+        df: Input GeoDataFrame
+    """
+    outdf = df[df.geom_type != "MultiPolygon"]
+
+    df_mp = df[df.geom_type == "MultiPolygon"]
+    for idx, row in df_mp.iterrows():
+        df_temp = gpd.GeoDataFrame(columns=df_mp.columns)
+        df_temp = df_temp.append([row] * len(row.geometry), ignore_index=True)
+        for i in range(len(row.geometry)):
+            df_temp.loc[i, "geometry"] = row.geometry[i]
+        outdf = outdf.append(df_temp, ignore_index=True)
+
+    outdf = outdf.reset_index(drop=True)
+    return outdf

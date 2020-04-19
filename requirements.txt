@@ -1,3 +1,4 @@
 up42-py
 area
 black
+rtree
