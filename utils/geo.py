@@ -134,7 +134,18 @@ def explode_mp(df: GDF) -> GDF:
     return outdf
 
 
-def get_best_sections_full_coverage(df, min_size_section_sqkm=0.5):
+def get_best_sections_full_coverage(df, order_by=["cloudCoverage"], min_size_section_sqkm=0.5):
+    """
+    Ordered by order_by column, and automatically area_sqkm_clipped
+    :param df:
+    :param order_by: E.g. ["cloudCoverage", "incidenceAngle"], third order will always be area.
+        Be aware that this will to many small sections, better filter incidence angle by treshold.
+    :param min_size_section_sqkm:
+    :return:
+    """
+    df = add_area_in_sqkm(df, "area_sqkm_clipped")
+    df = df.sort_values(by=[*order_by, "area_sqkm_clipped"], axis=0, ascending=False)
+
     # Select the best scene as a starting point (lowest cc, highest area.)
     full_coverage = df.iloc[[0]]
 
@@ -159,7 +170,7 @@ def get_best_sections_full_coverage(df, min_size_section_sqkm=0.5):
             break
         # reorder.
         remaining_minus_covered = remaining_minus_covered.sort_values(
-            by=["cloudCoverage", "area_sqkm_new"], axis=0, ascending=False)
+            by=[*order_by, "area_sqkm_new"], axis=0, ascending=False)
 
         # Select the now best scene.
         now_best = remaining_minus_covered.iloc[[0]]
