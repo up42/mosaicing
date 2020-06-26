@@ -2,13 +2,12 @@ from typing import Union
 import math
 
 import shapely
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, box
 from shapely.ops import transform
 import pyproj
 import geopandas as gpd
 from geopandas import GeoDataFrame as GDF
 import pandas as pd
-import area
 
 
 # pylint: disable=chained-comparison
@@ -69,10 +68,9 @@ def buffer_meter(
         Buffered polygon (by distance) in original epsg crs.
     """
     if use_centroid:
-        lon = poly.centroid.x
-        lat = poly.centroid.y
-
-    epsg_utm = get_utm_zone_epsg(lon=lon, lat=lat)
+        epsg_utm = get_utm_zone_epsg(lon=poly.centroid.x, lat=poly.centroid.y)
+    else:
+        epsg_utm = get_utm_zone_epsg(lon=lon, lat=lat)  # type: ignore
     poly_utm = reproject_shapely(geometry=poly, epsg_in=epsg_in, epsg_out=epsg_utm)
     poly_buff = poly_utm.buffer(distance, **kwargs)
     poly_buff_original_epsg = reproject_shapely(
@@ -95,21 +93,12 @@ def reproject_shapely(
         epsg_out: epsg code for reprojection
     """
     project = pyproj.Transformer.from_proj(
-        pyproj.Proj(f"epsg:{str(epsg_in)}"), pyproj.Proj(f"epsg:{str(epsg_out)}")
+        pyproj.Proj(f"epsg:{str(epsg_in)}"),
+        pyproj.Proj(f"epsg:{str(epsg_out)}"),
+        always_xy=True,
     )
     geometry_reprojected = transform(project.transform, geometry)
     return geometry_reprojected
-
-
-def add_area_in_sqkm(df: GDF, col_name="area_sqkm") -> GDF:
-    features = df.__geo_interface__["features"]
-    areas_list = []
-    for idx, feature in enumerate(features):
-        area_sqkm = area.area(feature["geometry"]) / (10 ** 6)
-        areas_list.append(area_sqkm)
-
-    df[col_name] = areas_list
-    return df
 
 
 def explode_mp(df: GDF) -> GDF:
@@ -123,7 +112,7 @@ def explode_mp(df: GDF) -> GDF:
     outdf = df[df.geom_type != "MultiPolygon"]
 
     df_mp = df[df.geom_type == "MultiPolygon"]
-    for idx, row in df_mp.iterrows():
+    for _, row in df_mp.iterrows():
         df_temp = gpd.GeoDataFrame(columns=df_mp.columns)
         df_temp = df_temp.append([row] * len(row.geometry), ignore_index=True)
         for i in range(len(row.geometry)):
@@ -134,7 +123,11 @@ def explode_mp(df: GDF) -> GDF:
     return outdf
 
 
-def get_best_sections_full_coverage(df, order_by=["cloudCoverage"], min_size_section_sqkm=0.5):
+# Allows passing of list for ordering
+# pylint: disable=dangerous-default-value
+def get_best_sections_full_coverage(
+    df, order_by=["cloudCoverage"], min_size_section_sqkm=0.5
+):
     """
     Ordered by order_by column, and automatically area_sqkm_clipped
     :param df:
@@ -143,41 +136,57 @@ def get_best_sections_full_coverage(df, order_by=["cloudCoverage"], min_size_sec
     :param min_size_section_sqkm:
     :return:
     """
-    df = add_area_in_sqkm(df, "area_sqkm_clipped")
+    centroid = box(*df.total_bounds).centroid
+    epsg = get_utm_zone_epsg(lon=centroid.x, lat=centroid.y)
+    df = df.to_crs(epsg=epsg)
+
+    df["area_sqkm_clipped"] = df.area / 10 ** 6
     df = df.sort_values(by=[*order_by, "area_sqkm_clipped"], axis=0, ascending=False)
+    df = df[df["area_sqkm_clipped"] > min_size_section_sqkm]
+    if df.shape[0] == 0:
+        raise Exception(
+            "No data matches optimize parameters! Try again by running a wider search!"
+        )
 
     # Select the best scene as a starting point (lowest cc, highest area.)
     full_coverage = df.iloc[[0]]
 
     remaining = df.iloc[1:]
 
-    for i in range(remaining.shape[0]):
+    for _ in range(remaining.shape[0]):
 
-        # Get the unioned area of the aoi which is already covered by the selected scenes, subtract that area from all remaining scenes.
-        already_covered = gpd.GeoDataFrame(pd.DataFrame([0]), crs={'init': 'epsg:4326'},
-                                           geometry=[
-                                               full_coverage.geometry.unary_union])
-        remaining_minus_covered = gpd.overlay(remaining, already_covered,
-                                              how="difference")
+        # Get the unioned area of the aoi which is already covered by
+        # the selected scenes, subtract that area from all remaining scenes.
+        already_covered = gpd.GeoDataFrame(
+            pd.DataFrame([0]),
+            crs=f"EPSG:{epsg}",
+            geometry=[full_coverage.geometry.unary_union],
+        )
+        remaining_minus_covered = gpd.overlay(
+            remaining, already_covered, how="difference"
+        )
 
         # Recalculate the area of the remaining scenes.
-        remaining_minus_covered = add_area_in_sqkm(remaining_minus_covered,
-                                                   "area_sqkm_new")
+        remaining_minus_covered["area_sqkm_new"] = (
+            remaining_minus_covered.area / 10 ** 6
+        )
         # Remove too small scene sections
         remaining_minus_covered = remaining_minus_covered[
-            remaining_minus_covered["area_sqkm_new"] > min_size_section_sqkm]
+            remaining_minus_covered["area_sqkm_new"] > min_size_section_sqkm
+        ]
         if remaining_minus_covered.shape[0] == 0:
             break
         # reorder.
         remaining_minus_covered = remaining_minus_covered.sort_values(
-            by=[*order_by, "area_sqkm_new"], axis=0, ascending=False)
+            by=[*order_by, "area_sqkm_new"], axis=0, ascending=False
+        )
 
         # Select the now best scene.
         now_best = remaining_minus_covered.iloc[[0]]
         # Explode potential mutipolygons
         if "MultiPolygon" in now_best.geometry.type.tolist():
             now_best = explode_mp(now_best)
-            now_best = add_area_in_sqkm(now_best, "area_sqkm_new")
+            now_best["area_sqkm_new"] = now_best.area / 10 ** 6
             now_best = now_best[now_best["area_sqkm_new"] > min_size_section_sqkm]
             if now_best.shape[0] == 0:
                 continue
@@ -188,7 +197,11 @@ def get_best_sections_full_coverage(df, order_by=["cloudCoverage"], min_size_sec
         # Next iteration will not include the selected scene.
         remaining = remaining_minus_covered.iloc[1:]
 
-    full_coverage = add_area_in_sqkm(full_coverage, "area_sqkm_new")
+    full_coverage["full_coverage"] = full_coverage.area / 10 ** 6
     full_coverage.geometry = full_coverage.geometry.buffer(0)
+
+    full_coverage = full_coverage.to_crs(epsg=4326)
+
+    full_coverage = explode_mp(full_coverage)
 
     return full_coverage

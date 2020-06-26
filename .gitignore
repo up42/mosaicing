@@ -130,4 +130,6 @@ dmypy.json
 
 *.tif
 *.jpg
-*.geojson
+config.json
+test/
+*.DS_Store
