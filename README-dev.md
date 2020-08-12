@@ -1,4 +1,4 @@
-# Mosaicing
+# Mosaicking
 
 ## Install dependencies
 

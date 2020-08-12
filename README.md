@@ -1,4 +1,4 @@
-# Mosaicing ![](./coverage.svg)
+# Mosaicking ![](./coverage.svg)
 
 ## Highlights
 - Jupyter notebook to create mosaics using Pleaides/SPOT imagery
@@ -25,23 +25,23 @@ pip install http://www.lfd.uci.edu/~gohlke/pythonlibs/djcobkfp/Rtree-0.8.2-cp27-
 
 Create a virtual environment:
 ```bash
-mkvirtualenv --python=$(which python3.7) up42-mosaicing
+mkvirtualenv --python=$(which python3.7) up42-mosaicking
 ```
 
 Activate the virtual environment:
 ```bash
-workon up42-mosaicing
+workon up42-mosaicking
 ```
 
 Install python requirements in the virtual environment:
 ```bash
-(up42-mosaicing) pip install -r requirements.txt
+(up42-mosaicking) pip install -r requirements.txt
 ```
 
 Register Jupyter kernel to make sure virtual environment is used:
 
 ```bash
-(up42-mosaicing) python -m ipykernel install --user --name=up42-mosaicing
+(up42-mosaicking) python -m ipykernel install --user --name=up42-mosaicking
 ```
 
 Select kernel on the top right of the Jupyter notebook.
@@ -50,7 +50,7 @@ To be able to use the widgets with Jupyter Lab, please follow the official [inst
 
 ## Usage
 
-Open the [notebook - mosaicing.ipynb](mosaicing.ipynb) in Jupyter:
+Open the [notebook - mosaicking.ipynb](mosaicking.ipynb) in Jupyter:
 ```bash
 jupyter notebook
 ```
@@ -58,7 +58,7 @@ Then click on **Run all cells** button to display all the widgets in the noteboo
 
 ### Authentication
 
-To use the mosaicing Jupyter notebook you need an UP42 account - sign up [here](https://console.up42.com/)! Copy your Project ID and Project API Key from the Developer tab in your project page.
+To use the mosaicking Jupyter notebook you need an UP42 account - sign up [here](https://console.up42.com/)! Copy your Project ID and Project API Key from the Developer tab in your project page.
 
 ### Setup
 
@@ -89,4 +89,4 @@ After ordering the imagery, you can now proceed with stitching the imagery toget
 
 ## Support
 
-For any kind of issues or suggestions please contact us via Email **[support@up42.com](mailto:support@up42.com)** or open a **[github issue](https://github.com/up42/mosaicing/issues)**.
+For any kind of issues or suggestions please contact us via Email **[support@up42.com](mailto:support@up42.com)** or open a **[github issue](https://github.com/up42/mosaicking/issues)**.

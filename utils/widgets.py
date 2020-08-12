@@ -361,7 +361,9 @@ class UI:
             ), "Please run steps before (optimize coverage)!"
 
             self.project = up42.initialize_project()
-            self.workflow = self.project.create_workflow("mosaicing", use_existing=True)
+            self.workflow = self.project.create_workflow(
+                "mosaicking", use_existing=True
+            )
 
             blocks = up42.get_blocks(basic=True)
             self.workflow.add_workflow_tasks(
