@@ -1,4 +1,4 @@
-# Mosaicking ![](./coverage.svg)
+# Mosaicking ![](./coverage.svg) [![](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/up42/mosaicking/master?filepath=mosaicking.ipynb)
 
 ## Highlights
 - Jupyter notebook to create mosaics using Pleaides/SPOT imagery
@@ -9,6 +9,8 @@
 Visual interface for search parameters         |  View all quicklooks | View the result of optimization
 :-------------------------:|:-------------------------:|:-------------------------:
 ![](assets/search.png)  |  ![](assets/quicklooks.png) | ![](assets/optimize.png) |
+
+Try mosaicking without any installation! [![](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/up42/mosaicking/master?filepath=mosaicking.ipynb)
 
 ## Installation
 
