@@ -3,7 +3,7 @@ import math
 
 import shapely
 from shapely.geometry import Polygon, box
-from shapely.ops import transform
+from shapely.ops import transform, cascaded_union
 import pyproj
 import geopandas as gpd
 from geopandas import GeoDataFrame as GDF
@@ -50,7 +50,6 @@ def buffer_meter(
     use_centroid=True,
     lon: float = None,
     lat: float = None,
-    **kwargs,
 ) -> Polygon:
     """
     Buffers a polygon in meter by temporarily reprojecting to appropiate equal-area UTM
@@ -72,7 +71,7 @@ def buffer_meter(
     else:
         epsg_utm = get_utm_zone_epsg(lon=lon, lat=lat)  # type: ignore
     poly_utm = reproject_shapely(geometry=poly, epsg_in=epsg_in, epsg_out=epsg_utm)
-    poly_buff = poly_utm.buffer(distance, **kwargs)
+    poly_buff = poly_utm.buffer(distance)
     poly_buff_original_epsg = reproject_shapely(
         geometry=poly_buff, epsg_in=epsg_utm, epsg_out=epsg_in
     )
@@ -203,5 +202,21 @@ def get_best_sections_full_coverage(
     full_coverage = full_coverage.to_crs(epsg=4326)
 
     full_coverage = explode_mp(full_coverage)
+    full_coverage.geometry = full_coverage.geometry.buffer(0)
 
     return full_coverage
+
+
+def coverage_percentage(aoi: GDF, full_coverage: GDF) -> float:
+    """
+    Calculates percentage of coverage of AOI from full_coverage.
+    """
+
+    centroid = box(*full_coverage.total_bounds).centroid
+    epsg = get_utm_zone_epsg(lon=centroid.x, lat=centroid.y)
+    full_coverage = full_coverage.to_crs(epsg=epsg)
+    aoi = aoi.to_crs(epsg=epsg)
+
+    unary_union = gpd.GeoSeries(cascaded_union(full_coverage.geometry))
+    cov = (unary_union.area / aoi.area) * 100
+    return float(cov)

@@ -192,3 +192,10 @@ def test_explode_mp(df_multipolygon):
 def test_get_best_sections_full_coverage(df_multipolygon):
     out_df = get_best_sections_full_coverage(df_multipolygon)
     assert len(out_df) == 5
+
+
+def test_coverage_percentage(df_multipolygon):
+    cov = coverage_percentage(df_multipolygon.loc[[0]], df_multipolygon)
+    assert cov >= 100
+    cov = coverage_percentage(df_multipolygon.loc[[0]].buffer(10), df_multipolygon)
+    assert cov < 100

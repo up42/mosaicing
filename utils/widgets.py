@@ -14,10 +14,7 @@ from rasterio.enums import ColorInterp
 
 import up42
 
-from utils.geo import (
-    buffer_meter,
-    get_best_sections_full_coverage,
-)
+from utils.geo import buffer_meter, get_best_sections_full_coverage, coverage_percentage
 
 # To rename filename to directory
 # pylint: disable=too-many-ancestors
@@ -300,10 +297,7 @@ class UI:
                 order_by=["cloudCoverage"],
                 min_size_section_sqkm=min_size_section_sqkm.value,
             )
-
-            display(full_coverage)
-            up42.plot_coverage(full_coverage, aoi=self.aoi, figsize=(7, 7))
-
+            n_scenes = full_coverage.shape[0]
             full_coverage.to_file(
                 driver="GeoJSON", filename=self.outdir / "full_coverage.geojson"
             )
@@ -325,11 +319,27 @@ class UI:
             full_coverage = gpd.clip(full_coverage, self.aoi.iloc[0].geometry)
             full_coverage.geometry = full_coverage.geometry.buffer(0)
 
+            display(full_coverage)
+            up42.plot_coverage(full_coverage, aoi=self.aoi, figsize=(7, 7))
+
             assert full_coverage is not None, "Result is empty, try other parameters!"
+            assert (
+                n_scenes == full_coverage.shape[0]
+            ), "Something went wrong, a scene was dropped..."
             full_coverage.to_file(
                 driver="GeoJSON",
                 filename=self.outdir / "full_coverage_buffered.geojson",
             )
+            print("=======================================================")
+            print("Coverage of AOI is:")
+            cov = coverage_percentage(self.aoi, full_coverage)
+            print(f"{round(cov)} %")
+            if cov < 98:
+                print(
+                    "WARNING: Coverage could be insufficient! Check full_coverage.geojson"
+                )
+            print("=======================================================")
+
             self.full_coverage = full_coverage
 
         self.process_template(
@@ -361,6 +371,7 @@ class UI:
             ), "Please run steps before (optimize coverage)!"
 
             self.project = up42.initialize_project()
+            self.project.update_project_settings(max_concurrent_jobs=10)
             self.workflow = self.project.create_workflow(
                 "mosaicking", use_existing=True
             )
@@ -371,17 +382,22 @@ class UI:
             )
 
             # Test workflow & availability of sections
-
-            test_jobs = {}
-            for idx, row in self.full_coverage.iterrows():
+            parameters = []
+            for _, row in self.full_coverage.iterrows():
 
                 test_parameters = self.workflow.construct_parameters(
                     geometry=row.geometry,
                     geometry_operation="intersects",
                     scene_ids=[row["scene_id"]],
                 )
+                parameters.append(test_parameters)
 
-                test_job = self.workflow.test_job(test_parameters, track_status=True)
+            test_jobs = self.workflow.test_jobs_parallel(
+                parameters, name="mosaicking_tests"
+            )
+
+            test_jobs_df = {}
+            for test_job in test_jobs:
                 try:
                     estimated_credits = list(
                         test_job.get_jobtasks_results_json().values()
@@ -393,13 +409,13 @@ class UI:
                 test_df["estimatedCredits"] = estimated_credits
                 display(test_df)
 
-                test_jobs[idx] = test_df
+                test_jobs_df[test_job.job_id] = test_df
 
-            test_jobs = pd.concat(test_jobs.values(), keys=test_jobs.keys())
+            test_jobs_df = pd.concat(test_jobs_df.values(), keys=test_jobs_df.keys())
             display(test_jobs)
             print("=======================================================")
             print("Generating this mosaic is estimated to cost:")
-            print(f"{test_jobs['estimatedCredits'].sum()} UP42 credits")
+            print(f"{test_jobs_df['estimatedCredits'].sum()} UP42 credits")
             print("=======================================================")
 
             self.selected_blocks = selected_blocks.value
@@ -421,7 +437,7 @@ class UI:
                 (self.full_coverage, self.outdir, self.catalog)
             ), "Please run steps before (optimize coverage and select outdir)!"
 
-            jobs = {}
+            parameters_list = []
             for _, row in self.full_coverage.iterrows():
 
                 parameters = self.workflow.construct_parameters(
@@ -429,16 +445,19 @@ class UI:
                     geometry_operation="intersects",
                     scene_ids=[row["scene_id"]],
                 )
+                parameters_list.append(parameters)
                 print(parameters)
 
-                job = self.workflow.run_job(parameters, track_status=True)
+            jobs = self.workflow.run_jobs_parallel(parameters_list, name="mosaicking")
 
+            jobs_df = {}
+            for job in jobs:
                 out_filepaths = job.download_results(
                     output_directory=self.outdir / "sections"
                 )
-                jobs[out_filepaths[0]] = job
+                jobs_df[out_filepaths[0]] = job
 
-            self.jobs = jobs
+            self.jobs = jobs_df
 
             print("finished")
 
