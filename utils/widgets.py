@@ -130,7 +130,9 @@ class UI:
             description="Pick an end date", style={"description_width": "initial"}
         )
         sensors = widgets.RadioButtons(
-            options=["pleiades", "spot"], value="pleiades", description="Sensor",  #
+            options=["pleiades", "spot"],
+            value="pleiades",
+            description="Sensor",  #
         )
         max_cloudcover = widgets.IntSlider(
             value=20,
@@ -141,7 +143,11 @@ class UI:
             style={"description_width": "initial"},
         )
         limit = widgets.IntSlider(
-            value=10, min=1, max=500, step=1, description="Limit",
+            value=10,
+            min=1,
+            max=500,
+            step=1,
+            description="Limit",
         )
 
         button = widgets.Button(description="Save search params!")
@@ -235,7 +241,9 @@ class UI:
                 sensor=self.sensors,
                 output_directory=self.outdir / "quicklooks",
             )
-            self.catalog.plot_quicklooks(figsize=(20, 20))
+            display(
+                self.catalog.map_quicklooks(scenes=self.search_results, aoi=self.aoi)
+            )
 
         self.process_template([], button_quicklooks, show_quicklooks)
 

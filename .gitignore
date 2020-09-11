@@ -133,3 +133,4 @@ dmypy.json
 config.json
 test/
 *.DS_Store
+.idea/
