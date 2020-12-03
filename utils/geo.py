@@ -156,10 +156,13 @@ def get_best_sections_full_coverage(
 
         # Get the unioned area of the aoi which is already covered by
         # the selected scenes, subtract that area from all remaining scenes.
-        already_covered = gpd.GeoDataFrame(
-            pd.DataFrame([0]),
-            crs=f"EPSG:{epsg}",
-            geometry=[full_coverage.geometry.unary_union],
+        # Makes sure results are all Polygons
+        already_covered = explode_mp(
+            gpd.GeoDataFrame(
+                pd.DataFrame([0]),
+                crs=f"EPSG:{epsg}",
+                geometry=[full_coverage.geometry.unary_union],
+            )
         )
         remaining_minus_covered = gpd.overlay(
             remaining, already_covered, how="difference"

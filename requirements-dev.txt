@@ -1,7 +1,8 @@
 pytest
-mypy==0.770
+mypy
 pytest-mypy
 pytest-cov
 pytest-pylint
 black
 coverage-badge
+nb-clean

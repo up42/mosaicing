@@ -194,6 +194,15 @@ def test_get_best_sections_full_coverage(df_multipolygon):
     assert len(out_df) == 5
 
 
+def test_get_best_sections_full_coverage_topological_error():
+    df = gpd.GeoDataFrame.from_file(
+        Path(__file__).parent
+        / Path("./mock_data/search_results_limited_columns.geojson")
+    )
+    out_df = get_best_sections_full_coverage(df)
+    assert len(out_df) == 73
+
+
 def test_coverage_percentage(df_multipolygon):
     cov = coverage_percentage(df_multipolygon.loc[[0]], df_multipolygon)
     assert cov >= 100
